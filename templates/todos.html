@@ -17,9 +17,25 @@
     {% else %}
         <ul>
             {% for task in tasks %}
-            <li>{{task}}</li>
+            <li>{{task.name}} <!--instead of just {{task}}
+            .name only grabs the name property of this object-->
+            <!--below code allows user to delete list item-->
+                <form action='/delete-task' method='POST' style="display:inline-block">
+                    <input type="hidden" name="task-id" value="{{task.id}}"><!--above input holds the idea for a given task-->
+                    <input type="submit" value="I'm Finished!">
+                </form>
+            </li>
             {% endfor %}
         </ul>
     {% endif %}
+
+    <hr>
+
+    <h2>My Completed Tasks</h2>
+    <ul>
+        {% for task in completed_tasks %}
+            <li>{{task.name}}</li>
+        {% endfor %}
+    </ul>
 
 {% endblock %}
