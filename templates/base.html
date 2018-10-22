@@ -3,8 +3,44 @@
 <html>
 <head>
     <title>{{title}}</title>
+
+    <style type="text/css">
+    .error {
+        display: inline;
+        color: red;
+        font-size: 10px;
+    }
+
+    .flash_fail {
+        font-family: Arial;
+        font-size: 15px;
+        color: red;
+        display: inline;
+        font-weight: 800;
+    }
+
+    .flash_success {
+        font-family: Arial;
+        font-size: 15px;
+        color: limegreen;
+        display: inline;
+        font-weight: 800;
+
+    }
+
+    </style>
 </head>
 <body>
+
+    <div><a href="/logout">Log Out</a></div>
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+        <ul>
+            {% for category,message in messages %}
+                <li class="{{category}}">{{message}}</li>
+            {% endfor %}
+        </ul>
+    {% endwith %}
 
     {% block content %}
     {% endblock %}

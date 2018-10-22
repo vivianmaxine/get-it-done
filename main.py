@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template
+from flask import Flask, request, redirect, render_template, session, flash
 from flask_sqlalchemy import SQLAlchemy
 # above imports SQLAlchemy class from flask_sqlalchemy module
 
@@ -15,6 +15,9 @@ db = SQLAlchemy(app)  # creates db object by binding app w/ db
 
 # create persistent class representing the app-specific data
 # instead of using just a simple list like tasks = []
+
+# set secret key up below for session
+app.secret_key = 'Za8-eX=$fdQE!^Wr'
 
 
 class Task(db.Model):
@@ -41,6 +44,15 @@ class User(db.Model):
     def __init__(self, email, password):
         self.email = email
         self.password = password
+
+
+@app.before_request
+def require_login():
+    # check for existence of user email in session
+    # allowed routes allows people to view page even when not in session
+    allowed_routes = ['register', 'login']
+    if request.endpoint not in allowed_routes and 'email' not in session:
+        return redirect('/login')
 
 
 @app.route('/', methods=['POST', 'GET'])
@@ -86,30 +98,57 @@ def delete_task():
 # REGISTER HANDLER
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    entered_email = ''
+    existing_user_error = ''
+    password_mismatch = ''
+    password_length_error = ''
+    email_format_error = ''
+
     if request.method == 'POST':
         new_email = request.form['email']
+        entered_email = new_email
+
         new_password = request.form['password']
         new_password_verify = request.form['verify']
 
         existing_user = User.query.filter_by(email=new_email).first()
+        print(existing_user)
 
         if not existing_user:
 
             if new_password == new_password_verify:
                 new_user = User(new_email, new_password)
+                if '@' in new_email and '.' in new_email:
+                    if len(new_password) <= 5 or len(new_password) > 20:
+                        password_length_error = "Your password should be \
+                        5-20 characters long."
+                    else:
+                        db.session.add(new_user)
+                        db.session.commit()
+                    # TODO: REMEMBER THE USER AS LOGGED IN (BELOW)
+                        session['email'] = new_email
+                        flash(
+                            "You have successfully registered for Get It\
+                             Done!", 'flash_success')
+                        return redirect('/')
+                else:
+                    email_format_error = "Please enter a valid email."
 
-                db.session.add(new_user)
-                db.session.commit()
-
-                # TODO: REMEMBER THE USER AS LOGGED IN
-                return redirect('/')
             else:
-                return '<h1 style="color: red">Please make sure \
-                your passwords match.</h1>'
+                password_mismatch = "Please make sure your passwords match."
+                # return '<h1 style="color: red">Please make sure \
+                # your passwords match.</h1>'
         else:
-            return '<h1 style="color: red">This user already exists.</h1>'
+            existing_user_error = "This user already exists."
+            # return '<h1 style="color: red">This user already exists.</h1>'
 
-    return render_template('register.html')
+    return render_template(
+        'register.html',
+        existing_user_error=existing_user_error,
+        password_mismatch=password_mismatch,
+        entered_email=entered_email,
+        email_format_error=email_format_error,
+        password_length_error=password_length_error)
 
 
 # LOGIN HANDLER
@@ -129,14 +168,23 @@ def login():
         # below, "user.password == password" checks to see if
         # entered pw = db pw
         if user and user.password == login_password:
-            # TODO - REMEMBER THAT USER HAS LOGGED IN
+            # TODO - REMEMBER THAT USER HAS LOGGED IN (BELOW)
+            session['email'] = login_email
+            # flash message to verify they logged in (below)
+            flash("You have successfully logged in.", 'flash_success')
             return redirect('/')
         else:
             # TODO - ERROR MESSAGES EXPLAINING WHY LOGIN FAILED
-            return '<h1 style="color:red">ERROR ALERT!<br> \
-            Email or Password Incorrect! :(</h1>'
+            flash(
+                "User does not exist or password is incorrect.", 'flash_fail')
     return render_template('login.html')
 
+
+@app.route('/logout')
+def logout():
+    del session['email']
+    flash("You have successfully logged out.", 'flash_success')
+    return redirect('/')
 
 if __name__ == "__main__":
     app.run()
