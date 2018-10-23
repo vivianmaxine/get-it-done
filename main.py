@@ -20,6 +20,18 @@ db = SQLAlchemy(app)  # creates db object by binding app w/ db
 app.secret_key = 'Za8-eX=$fdQE!^Wr'
 
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True)
+    password = db.Column(db.String(120))
+    # specify that a user as many tasks (connect to task class)
+    tasks = db.relationship('Task', backref='owner')
+
+    def __init__(self, email, password):
+        self.email = email
+        self.password = password
+
+
 class Task(db.Model):
     # every class has an id (primary key)
     id = db.Column(db.Integer, primary_key=True)
@@ -29,21 +41,15 @@ class Task(db.Model):
     completed = db.Column(db.Boolean)
     # above uses Boolean to show whether task is completed or not
 
-    # provide constuctor below
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    # make owner an actual user object by connecting to User() with ID
 
-    def __init__(self, name):
+    # provide constuctor below
+    # create owner in constructor for each instance of a task
+    def __init__(self, name, owner):
         self.name = name  # name from input is the default
         self.completed = False  # False if NOT completed (default)
-
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True)
-    password = db.Column(db.String(120))
-
-    def __init__(self, email, password):
-        self.email = email
-        self.password = password
+        self.owner = owner
 
 
 @app.before_request
@@ -57,20 +63,36 @@ def require_login():
 
 @app.route('/', methods=['POST', 'GET'])
 def index():
+
+    # helps create task using the owner whose info was retreived
+    # using the email from the current session
+    owner = User.query.filter_by(email=session['email']).first()
+
     if request.method == 'POST':
         # task = request.form['task']; connects to name in html form
         # tasks.append(task) - appends each task to simple tasks list
 
         task_name = request.form['task']  # pulls input from form
-        new_task = Task(task_name)  # converts to a new task object
+        # get the user/owner and then apply task to user (below)
+
+        new_task = Task(task_name, owner)  # converts to a new task object
         db.session.add(new_task)  # puts new task object in db
         db.session.commit()
 
     # tasks = Task.query.all()  # gathers all list
-    tasks = Task.query.filter_by(completed=False).all()
+
+    # make sure you specify that owner of given task is the same as
+    # the owner you're currently working with in the session who
+    # made the request
+    # left is querying for tasks based on value of owner property
+    # right is based on owner retrieved from session information
+
+    tasks = Task.query.filter_by(completed=False, owner=owner).all()
     # above shows all tasks where completed = False
 
-    completed_tasks = Task.query.filter_by(completed=True).all()
+    completed_tasks = Task.query.filter_by(completed=True, owner=owner).all()
+
+    # add additional filter of who owns the task (below)
 
     return render_template(
         'todos.html', title="Get It Done!",
